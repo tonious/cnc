@@ -25,9 +25,12 @@ envelope_z = 2 * inch;
 
 // Where is the tool head?
 
-seek_x = 11.5/2 * inch;
+seek_x = 11.5 / 2* inch;
 seek_y = 8/2 * inch;
 seek_z = 2 * inch;
+
+// How wide is our carriage?
+carriage_x = 6 * inch;
 
 // What size of stepper are we using?
 
@@ -40,19 +43,21 @@ rod_diameter = 3/8 * inch;
 leadscrew_diameter = 5/16 * inch;
 leadscrew_cutout_diameter = 1/2 * inch;
 
-epsilon = 0.1 * mm;
+
+// Fudge factor to keep OpenSCAD's renderer happy.
+epsilon = 0.05 * mm; 
 
 // Calculated Values ============================================================= 
 
 cutout_thickness = 2 * plate_thickness;
 cutout_offset = -1/2 * plate_thickness;
 
-// Bed ---------------------------------------------------------------------------
+// Bed (Y Axis) ------------------------------------------------------------------
 
 bed_x = envelope_x + 1 * inch;
 bed_y = envelope_y;
 
-// Bed bearing block.
+// Y bearing blocks.
 bed_bearing_center_to_rod = bed_x * 1 / 4;
 bed_bearing_x = bed_bearing_center_to_rod * 2 + 1 * inch;
 bed_bearing_y = 1 * inch;
@@ -65,37 +70,39 @@ bed_bearing_separation = bed_y / 2;
 bed_bearing_height = 1 * inch;
 
 
-// Gantry ------------------------------------------------------------------------
+// Gantry (X Axis) ---------------------------------------------------------------
 
-gantry_x = 6 * inch;
-gantry_y = 2 * inch;
-gantry_z = 2 * envelope_z + 2 * plate_thickness;
+// X bearing blocks.
+x_bearing_center_to_rod = 2 * inch;
+x_bearing_x = x_bearing_center_to_rod * 2 + 1 * inch;
+x_bearing_y = 1 * inch;
+x_bearing_z = 1/2 * inch;
 
-gantry_bearing_center_to_rod = gantry_x * 1/4;
-gantry_bearing_x = gantry_bearing_center_to_rod * 2 + 1 * inch;
-gantry_bearing_y = 1 * inch;
-gantry_bearing_z = 1/2 * inch;
+transfer_plate_x = carriage_x;
+transfer_plate_z = 2 * envelope_z + 2 * plate_thickness;
 
 // How far apart are the bearing blocks?
-gantry_bearing_separation = 4 * inch;
+x_bearing_separation = 4 * inch;
 
-// Distance from the front of the back plate to the back of the gantry.
-gantry_depth = 4 * inch;
+// Distance from the front of the back plate to the center of the x bearing.
+x_bearing_depth = 4 * inch;
 
-// Distance from the top of the base plate to the bottom of the gantry.
-gantry_height = 4 * inch;
+// Distance from the top of the base plate to the center of the x bearing.
+x_bearing_height = 6 * inch;
 
-// Distance from the front of the back gantry plate to the back of the z
-// axis bearing black.
-gantry_bearing_depth = 3/4 * inch;
+// Spindle (Z Axis) --------------------------------------------------------------
+
+y_bearing_x = carriage_x;
+y_bearing_y = 1 * inch;
+y_bearing_z = 1/2 * inch;
 
 
 // Extents -----------------------------------------------------------------------
 
 // How physically big is the machine?
 
-body_x = bed_x + gantry_x;
-body_y = bed_y * 2 + 2 * plate_thickness;
+body_x = envelope_x + carriage_x + 2 * plate_thickness;
+body_y = envelope_y * 2 + 2 * plate_thickness;
 body_z = 12 * inch;
 
 // How big is the cutout around the front of the machine?
@@ -201,32 +208,32 @@ module pattern_bed_bearings() {
 			translate( [bed_bearing_x / 2 + bed_bearing_center_to_rod, 0, 0] ) {
 				cylinder(
 					h = cutout_thickness,
-					r = rod_radius
+					r = rod_radius + epsilon
 				);
 			}
 			translate( [bed_bearing_x / 2 - bed_bearing_center_to_rod, 0, 0] ) {
 				cylinder(
 					h = cutout_thickness,
-					r = rod_radius
+					r = rod_radius + epsilon
 				);
 			}
 		}
 	}
 }
 
-module pattern_gantry_bearings() {
+module pattern_x_bearings() {
 	union() {
 		translate( [0, 0, cutout_offset] ) {
-			translate( [gantry_bearing_x / 2 + gantry_bearing_center_to_rod, 0, 0] ) {
+			translate( [x_bearing_x / 2 + x_bearing_center_to_rod, 0, 0] ) {
 				cylinder(
 					h = cutout_thickness,
-					r = rod_radius
+					r = rod_radius + epsilon
 				);
 			}
-			translate( [gantry_bearing_x / 2 - gantry_bearing_center_to_rod, 0, 0] ) {
+			translate( [x_bearing_x / 2 - x_bearing_center_to_rod, 0, 0] ) {
 				cylinder(
 					h = cutout_thickness,
-					r = rod_radius
+					r = rod_radius + epsilon
 				);
 			}
 		}
@@ -250,41 +257,13 @@ module bed_top() {
 	bed_bottom();
 }
 
-// Gantry
+// 
 
-module gantry_back() {
+module transfer_plate() {
 	color(
 		plate_material
 	)
-	cube( [gantry_x, gantry_z - 2 * plate_thickness, plate_thickness] );
-}
-
-module gantry_bottom() {
-	color(
-		plate_material
-	)
-	difference() {
-		cube( [gantry_x, gantry_y, plate_thickness] );
-		union() {
-			translate( [gantry_x / 2 - gantry_bearing_x/2, gantry_y - gantry_bearing_depth - plate_thickness, 0 ] )
-			pattern_gantry_bearings();
-		}
-	}
-}
-
-module gantry_top() {
-	color(
-		plate_material
-	)
-	cube( [gantry_x, gantry_y, plate_thickness] );
-}
-
-
-module gantry_either_side() {
-	color(
-		plate_material
-	)
-	cube( [gantry_y-plate_thickness, gantry_z - 2 * plate_thickness, plate_thickness] );
+	cube( [transfer_plate_x, transfer_plate_z, plate_thickness] );
 }
 
 
@@ -330,22 +309,28 @@ module body_either_side() {
 	color(
 		plate_material
 	)
-	linear_extrude(	
-		height = plate_thickness,
-		convexity = 10
-	)
-	polygon(
-		points=[
-			[0,0],
-			[0, body_lip_height - plate_thickness],
-			[body_lip_depth - plate_thickness,body_lip_height - plate_thickness],
-			[body_lip_depth - plate_thickness, body_z - plate_thickness],
-			[body_y - 2 * plate_thickness, body_z - plate_thickness],
-			[body_y - 2 * plate_thickness, 0]
-		],
-		paths=[[0,1,2,3,4,5]],
-		convexity = 10
-	);
+	difference() {
+		linear_extrude(	
+			height = plate_thickness,
+			convexity = 10
+		)
+		polygon(
+			points=[
+				[0,0],
+				[0, body_lip_height - plate_thickness],
+				[body_lip_depth - plate_thickness,body_lip_height - plate_thickness],
+				[body_lip_depth - plate_thickness, body_z - plate_thickness],
+				[body_y - 2 * plate_thickness, body_z - plate_thickness],
+				[body_y - 2 * plate_thickness, 0]
+			],
+			paths=[[0,1,2,3,4,5]],
+			convexity = 10
+		);
+
+		translate( [body_y - plate_thickness - x_bearing_depth, x_bearing_height, 0] )
+			rotate( [0,0,90] )
+				pattern_x_bearings();
+	}
 }
 
 module body_left_side() {
@@ -386,8 +371,48 @@ module bed_bearing( leadscrew_nut = false ) {
 	}
 }
 
+module x_bearing( leadscrew_nut = false ) {
+	color(
+		[1,1,1]
+	)
+	difference() {
+		cube( [x_bearing_x, x_bearing_y, x_bearing_z] );
+		union() {
+			translate( [0, x_bearing_y / 2, cutout_offset] ) {
+				translate( [x_bearing_x / 2, 0, 0] )
+					if( leadscrew_nut == true ) {
+						cylinder(
+							h = cutout_thickness,
+							r = leadscrew_radius
+						);
+					} else {
+						cylinder(
+							h = cutout_thickness,
+							r = leadscrew_cutout_radius
+						);
+					}
+			}
+			translate( [0, x_bearing_y / 2, 0 ] ) {
+				pattern_x_bearings();
+			}	
+		}
+	}
+}
+
 
 // Mechanical Parts --------------------------------------------------------------
+
+module bearing_x() {
+	translate( [-epsilon, 0, 0 ] )
+		rotate( [0,90,0] )
+			color( 
+				Steel
+			)
+			cylinder(
+				h = body_x + 2 * epsilon,
+				r = rod_radius - epsilon
+			);
+}
 
 module bearing_y() {
 	translate( [0, -epsilon, 0 ] )
@@ -415,6 +440,18 @@ module leadscrew_y() {
 
 // Assemblies ====================================================================
 
+module mechanical_x_axis_assembled() {
+
+	translate( [0, body_y - x_bearing_depth, x_bearing_height + x_bearing_x  / 2 + plate_thickness ]) {
+
+		translate( [0,0, x_bearing_center_to_rod] )
+			bearing_x();
+
+		translate( [0,0, - x_bearing_center_to_rod] )
+			bearing_x();
+	}
+}
+
 module mechanical_y_axis_assembled() {
 	translate( [ body_x/2, 0, bed_bearing_height + bed_bearing_y / 2 + plate_thickness] ) {
 		leadscrew_y();
@@ -426,6 +463,20 @@ module mechanical_y_axis_assembled() {
 			bearing_y();
 	}
 
+}
+
+module transfer_plate_assembled() {
+	rotate( [90,0,0] )
+		transfer_plate();
+
+	translate( [0,0,x_bearing_x] ) {
+		rotate( [0,90,0] )
+			x_bearing( leadscrew_nut = true);
+
+		translate( [transfer_plate_x - x_bearing_z, 0, 0 ] )
+			rotate( [0,90,0] )
+				x_bearing( leadscrew_nut = false);
+	}
 }
 
 module bed_assembled() {
@@ -448,25 +499,6 @@ module bed_assembled() {
 
 }
 
-module gantry_assembled() {
-	translate( [0,plate_thickness,plate_thickness] )
-		rotate( [90,0,0] )
-			gantry_back();
-
-	translate( [0,-gantry_y + plate_thickness, 0 ] )
-		gantry_bottom();
-
-	translate( [0,-gantry_y + plate_thickness, gantry_z - plate_thickness ] )
-		gantry_bottom();
-
-	translate( [0,-gantry_y + plate_thickness, plate_thickness ] )
-		rotate( [90,0,90] )
-			gantry_either_side();
-
-	translate( [gantry_x - plate_thickness,-gantry_y + plate_thickness, plate_thickness ] )
-		rotate( [90,0,90] )
-			gantry_either_side();
-}
 
 module body_assembled() {
 	body_bottom();
@@ -498,11 +530,16 @@ module assembled() {
 		translate( [ body_x / 2 - bed_x / 2 , seek_y + plate_thickness, plate_thickness + bed_bearing_height ] ) {
 			bed_assembled();
 		}
-		mechanical_y_axis_assembled();
-		%body_assembled();
 
-		translate( [plate_thickness + seek_x, body_x - plate_thickness -gantry_depth, gantry_height + plate_thickness ] )
-		gantry_assembled();
+		mechanical_y_axis_assembled();
+		mechanical_x_axis_assembled();
+		mechanical_z_axis_assembled();
+
+		translate( [plate_thickness + seek_x, body_y - x_bearing_depth - plate_thickness, x_bearing_height + plate_thickness] ) {
+			transfer_plate_assembled();
+		}
+
+		body_assembled();
 	}
 }
 
