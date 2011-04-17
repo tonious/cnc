@@ -3,6 +3,8 @@ include <MCAD/stepper.scad>
 include <MCAD/materials.scad>
 include <MCAD/screw.scad>
 include <MCAD/nuts_and_bolts.scad>
+include <MCAD/bearing.scad>
+
 
 mode = "assembled";
 //mode = "assembled_gantry";
@@ -24,13 +26,13 @@ envelope_y = 8 * inch;
 envelope_z = 2 * inch;
 
 // Where is the tool head?
-
-seek_x = 11.5 / 2 * inch;
-seek_y = 8/2 * inch;
-seek_z = 1 * inch;
+$t = 0.5;
+seek_x = envelope_x * $t;
+seek_y = envelope_y * $t;
+seek_z = envelope_z * $t;
 
 // How wide is our carriage?
-carriage_x = 4 * inch;
+carriage_x = 6 * inch;
 
 // What size of stepper are we using?
 
@@ -98,7 +100,8 @@ z_bearing_z = 1/2 * inch;
 z_bearing_center_to_rod = z_bearing_x / 2 - z_bearing_y / 2;
 
 z_slide_x = carriage_x;
-z_slide_y = 2 * inch;
+z_slide_y_top = 3 * inch;
+z_slide_y_bottom = 2 * inch;
 z_slide_z = envelope_z + transfer_plate_z + 2 * plate_thickness;
 
 
@@ -207,6 +210,21 @@ module pattern_cross_nut(
 	}
 }
 
+module pattern_bearing() {
+	union() {
+		translate( [0,0, -3/4 * cutout_thickness] )
+			cylinder( 
+				h = cutout_thickness,
+				r = 7/8 * inch /2
+			);
+		translate( [0,0, cutout_offset] )
+			cylinder( 
+				h = cutout_thickness,
+				r = 3/4 * inch /2
+			);
+	}
+}
+
 module pattern_bed_bearings() {
 	union() {
 		translate( [0, 0, cutout_offset] ) {
@@ -269,6 +287,17 @@ module pattern_z_bearings() {
 
 // MDF Parts ---------------------------------------------------------------------
 
+module stepper_mount() {
+	color(
+		plate_material
+	)
+	difference() {
+		cube( [bed_x, bed_y, plate_thickness] );
+
+		pattern_stepper_mount();
+	}
+}
+
 module bed_bottom() {
 	color(
 		plate_material
@@ -299,11 +328,28 @@ module slide_top() {
 		plate_material
 	)
 	difference() {
-		cube( [z_slide_x, z_slide_y, plate_thickness] );
+		cube( [z_slide_x, z_slide_y_top, plate_thickness] );
 		union() {
-			translate( [0,1.5 * inch,0] )
+			translate( [0,1.5 * inch,0] ) {
 				pattern_z_bearings();
+				translate( [z_slide_x/2,0,plate_thickness] )
+					rotate( [0,180,0])
+						pattern_bearing();
+
+			}
 		}
+	}
+}
+
+module slide_bottom() {
+	color(
+		plate_material
+	)
+	difference() {
+		cube( [z_slide_x, z_slide_y_bottom, plate_thickness] );
+			translate( [0,1.5 * inch,0] ) {
+				pattern_z_bearings();
+			}
 	}
 }
 
@@ -333,9 +379,9 @@ module body_back() {
 			translate( [
 				body_x/2,
 				bed_bearing_height + plate_thickness,
-				cutout_offset
+				0
 			] )
-				pattern_stepper_mount();
+				pattern_bearing();
 		}
 	}
 }
@@ -385,7 +431,19 @@ module body_either_side() {
 }
 
 module body_left_side() {
-	body_either_side();
+	color(
+		plate_material
+	)
+	difference() {
+		body_either_side();
+
+		translate( [
+			body_y - plate_thickness - x_bearing_depth,
+			x_bearing_height + x_bearing_x / 2,
+			0
+		] )
+			pattern_bearing();
+	}
 }
 
 module body_right_side() {
@@ -482,7 +540,7 @@ module z_bearing( leadscrew_nut = false ) {
 // Mechanical Parts --------------------------------------------------------------
 
 module bearing_x() {
-	translate( [-epsilon, 0, 0 ] )
+	translate( [ -epsilon, 0, 0 ] )
 		rotate( [0,90,0] )
 			color( 
 				Steel
@@ -494,7 +552,7 @@ module bearing_x() {
 }
 
 module bearing_y() {
-	translate( [0, -epsilon, 0 ] )
+	translate( [ 0, -epsilon, 0 ] )
 		rotate( [0,90,90] )
 			color( 
 				Steel
@@ -506,7 +564,7 @@ module bearing_y() {
 }
 
 module bearing_z() {
-	translate( [0, -epsilon, 0 ] )
+	translate( [ 0, -epsilon, 0 ] )
 		rotate( [0,0,90] )
 			color( 
 				Steel
@@ -517,14 +575,38 @@ module bearing_z() {
 			);
 }
 
+module leadscrew_x() {
+	translate( [ -1/2 * inch -epsilon, 0, 0 ] )
+		rotate( [0,90,0] )
+			color( 
+				Steel
+			)
+			cylinder(
+				h = envelope_x + transfer_plate_x/2,
+				r = leadscrew_radius - epsilon
+			);
+}
+
 module leadscrew_y() {
-	translate( [0, body_y - envelope_y -epsilon, 0 ] )
+	translate( [ 0, body_y - envelope_y -epsilon, 0 ] )
 		rotate( [0,90,90] )
 			color( 
 				Steel
 			)
 			cylinder(
 				h = envelope_y + 2 * epsilon,
+				r = leadscrew_radius - epsilon
+			);
+}
+
+module leadscrew_z() {
+	translate( [ 0, 0, - envelope_z - transfer_plate_z -epsilon ] )
+		rotate( [0,0,0] )
+			color( 
+				Steel
+			)
+			cylinder(
+				h = 1/2 * inch + envelope_z + transfer_plate_z + 2 * epsilon,
 				r = leadscrew_radius - epsilon
 			);
 }
@@ -541,6 +623,16 @@ module mechanical_x_axis_assembled() {
 		translate( [0,0, - x_bearing_center_to_rod] )
 			bearing_x();
 
+		translate([plate_thickness/2 - 8*mm,0,0])
+			rotate([0,90,0])
+				bearing( model=627 );
+
+		translate( [-1.5 * inch,0,0] )
+			rotate([0,-90,0])
+				motor(Nema23);
+
+		leadscrew_x();
+
 	}
 }
 
@@ -551,13 +643,45 @@ module mechanical_y_axis_assembled() {
 		bed_bearing_height + bed_bearing_y / 2 + plate_thickness
 	] ) {
 
-		leadscrew_y();
+		translate([0,1/2 * inch,0])
+			leadscrew_y();
 
 		translate( [bed_bearing_center_to_rod,0,0] )
 			bearing_y();
 
 		translate( [-bed_bearing_center_to_rod,0,0] )
 			bearing_y();
+
+		translate([0,body_y+8*mm - plate_thickness/2,0])
+			rotate([90,0,0])
+				bearing( model=627 );
+
+		translate( [0,body_y + 1.5 * inch,0] )
+			rotate([0,-90,-90])
+				motor(Nema23);
+	}
+
+}
+
+module mechanical_z_axis_assembled() {
+	translate( [ z_bearing_y / 2,0,-plate_thickness + epsilon ] ) {
+		bearing_z();
+
+		translate( [ z_bearing_center_to_rod * 2, 0, epsilon ] ) {
+			bearing_z();
+		}
+
+		translate( [z_bearing_center_to_rod,0,z_slide_z+1.5*inch] )
+			motor(Nema23);
+
+		translate( [z_bearing_center_to_rod,0,z_slide_z-plate_thickness/2] )
+			bearing( model=627 );
+
+		translate( [z_bearing_center_to_rod,0,z_slide_z] )
+			leadscrew_z();
+
+
+
 	}
 
 }
@@ -587,17 +711,12 @@ module transfer_plate_assembled() {
 }
 
 module z_slide_assembled() {
-	translate( [ z_bearing_y / 2,0,-plate_thickness -epsilon ] ) {
-		bearing_z();
 
-		translate( [ z_bearing_center_to_rod * 2, 0, 0 ] )
-			bearing_z();
-	}
 
 	translate( [0,-1 * inch,0] ) {
 
 		translate( [ 0, -plate_thickness, -plate_thickness] )
-			slide_top();
+			slide_bottom();
 
 		translate( [ 0, -plate_thickness, z_slide_z - 2 * plate_thickness] )
 			slide_top();
@@ -655,7 +774,7 @@ module body_assembled() {
 
 	translate( [ body_x - plate_thickness, plate_thickness, plate_thickness ] )
 		rotate( [90,0,90] )
-			body_left_side();
+			body_right_side();
 }
 
 
@@ -674,7 +793,6 @@ module assembled() {
 		}
 
 		mechanical_y_axis_assembled();
-		mechanical_z_axis_assembled();
 
 		translate( [
 			0,
@@ -698,15 +816,13 @@ module assembled() {
 					-seek_z
 				] ) {
 
+					mechanical_z_axis_assembled();
 					z_slide_assembled();
 				}
 			}
 		}
 
-
-
 		body_assembled();
-
 	}
 }
 
