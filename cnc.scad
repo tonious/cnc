@@ -21,7 +21,7 @@ plate_material = Birch;
 
 // What size of envelope do we have?
 
-envelope_x = 11.5 * inch;
+envelope_x = 12 * inch;
 envelope_y = 8 * inch;
 envelope_z = 2 * inch;
 
@@ -32,7 +32,7 @@ seek_y = envelope_y * $t;
 seek_z = envelope_z * $t;
 
 // How wide is our carriage?
-carriage_x = 6 * inch;
+carriage_x = 4 * inch;
 
 // What size of stepper are we using?
 
@@ -56,14 +56,18 @@ cutout_offset = -1/2 * plate_thickness;
 
 // Bed (Y Axis) ------------------------------------------------------------------
 
-bed_x = envelope_x + 1 * inch;
+bed_clearance = 0.5 * inch;
+bed_x = envelope_x + carriage_x - 2 * bed_clearance;
 bed_y = envelope_y;
+
+echo( str( "Bed size: ", bed_x/inch, " x ", bed_y/inch ) );
 
 // Y bearing blocks.
 bed_bearing_center_to_rod = bed_x * 1 / 4;
 bed_bearing_x = bed_bearing_center_to_rod * 2 + 1 * inch;
 bed_bearing_y = 1 * inch;
 bed_bearing_z = 1/2 * inch;
+
 
 // How far apart are the bearing blocks?
 bed_bearing_separation = bed_y / 2;
@@ -87,10 +91,12 @@ x_bearing_center_to_rod = x_bearing_x / 2 - x_bearing_y / 2;
 x_bearing_separation = 4 * inch;
 
 // Distance from the front of the back plate to the center of the x bearing.
-x_bearing_depth = 4 * inch;
+x_bearing_depth = 6 * inch;
 
 // Distance from the top of the base plate to the center of the x bearing.
 x_bearing_height = 7 * inch;
+
+x_clearance = 1/2 * inch;
 
 // Spindle (Z Axis) --------------------------------------------------------------
 
@@ -99,19 +105,24 @@ z_bearing_y = 1 * inch;
 z_bearing_z = 1/2 * inch;
 z_bearing_center_to_rod = z_bearing_x / 2 - z_bearing_y / 2;
 
+z_clearance = 1/4 * inch;
+
 z_slide_x = carriage_x;
-z_slide_y_top = 3 * inch;
-z_slide_y_bottom = 2 * inch;
-z_slide_z = envelope_z + transfer_plate_z + 2 * plate_thickness;
+z_slide_y_top = 3 * plate_thickness + 2 * z_bearing_y + 2 * z_clearance;
+z_slide_y_bottom = z_slide_y_top;
+z_slide_z = envelope_z + transfer_plate_z + 2 * plate_thickness + 2 * z_clearance;
+z_slide_front_edge_to_bearing_center = 1.5 * z_bearing_y + 2 * plate_thickness + z_clearance;
 
 
 // Extents -----------------------------------------------------------------------
 
 // How physically big is the machine?
 
-body_x = envelope_x + carriage_x + 2 * plate_thickness;
-body_y = envelope_y * 2 + 2 * plate_thickness;
+body_x = envelope_x + carriage_x + 2 * plate_thickness + 2 * x_clearance;
+body_y = envelope_y * 2 + 2 * plate_thickness + 2 * bed_clearance;
 body_z = 12 * inch;
+
+echo( str( "Base size: ", body_x/inch, " x ", body_y/inch ) );
 
 // How big is the cutout around the front of the machine?
 
@@ -324,21 +335,21 @@ module slide_back() {
 }
 
 module slide_top() {
-	color(
+
+ 	color(
 		plate_material
 	)
 	difference() {
 		cube( [z_slide_x, z_slide_y_top, plate_thickness] );
 		union() {
-			translate( [0,1.5 * inch,0] ) {
+			translate( [0, z_slide_front_edge_to_bearing_center, 0] ) {
 				pattern_z_bearings();
-				translate( [z_slide_x/2,0,plate_thickness] )
-					rotate( [0,180,0])
-						pattern_bearing();
-
+				translate( [z_slide_x/2,0,0] )
+					pattern_bearing();
 			}
 		}
 	}
+
 }
 
 module slide_bottom() {
@@ -347,7 +358,7 @@ module slide_bottom() {
 	)
 	difference() {
 		cube( [z_slide_x, z_slide_y_bottom, plate_thickness] );
-			translate( [0,1.5 * inch,0] ) {
+			translate( [0, z_slide_front_edge_to_bearing_center, 0] ) {
 				pattern_z_bearings();
 			}
 	}
@@ -363,6 +374,12 @@ module body_bottom() {
 }
 
 module body_back() {
+
+	translate( [ 9 * inch,0,0] )
+		rotate( [0,90,0] )
+			projection( cut=true )
+	rotate( [0,-90,0] )
+		translate( [ -9 * inch,0,0] )
 	color(
 		plate_material
 	)
@@ -379,9 +396,10 @@ module body_back() {
 			translate( [
 				body_x/2,
 				bed_bearing_height + plate_thickness,
-				0
+				plate_thickness
 			] )
-				pattern_bearing();
+				rotate( [0,180,0] )
+					pattern_bearing();
 		}
 	}
 }
@@ -431,6 +449,7 @@ module body_either_side() {
 }
 
 module body_left_side() {
+
 	color(
 		plate_material
 	)
@@ -440,9 +459,10 @@ module body_left_side() {
 		translate( [
 			body_y - plate_thickness - x_bearing_depth,
 			x_bearing_height + x_bearing_x / 2,
-			0
+			plate_thickness
 		] )
-			pattern_bearing();
+			rotate( [180,0,0] )
+				pattern_bearing();
 	}
 }
 
@@ -623,7 +643,7 @@ module mechanical_x_axis_assembled() {
 		translate( [0,0, - x_bearing_center_to_rod] )
 			bearing_x();
 
-		translate([plate_thickness/2 - 8*mm,0,0])
+		translate([plate_thickness/2 + 1*mm,0,0])
 			rotate([0,90,0])
 				bearing( model=627 );
 
@@ -664,7 +684,7 @@ module mechanical_y_axis_assembled() {
 }
 
 module mechanical_z_axis_assembled() {
-	translate( [ z_bearing_y / 2,0,-plate_thickness + epsilon ] ) {
+	translate( [ z_bearing_y / 2,z_slide_front_edge_to_bearing_center,epsilon ] ) {
 		bearing_z();
 
 		translate( [ z_bearing_center_to_rod * 2, 0, epsilon ] ) {
@@ -674,7 +694,7 @@ module mechanical_z_axis_assembled() {
 		translate( [z_bearing_center_to_rod,0,z_slide_z+1.5*inch] )
 			motor(Nema23);
 
-		translate( [z_bearing_center_to_rod,0,z_slide_z-plate_thickness/2] )
+		translate( [z_bearing_center_to_rod,0,z_slide_z-plate_thickness - 1 * mm] )
 			bearing( model=627 );
 
 		translate( [z_bearing_center_to_rod,0,z_slide_z] )
@@ -690,7 +710,8 @@ module transfer_plate_assembled() {
 	rotate( [90,0,0] )
 		transfer_plate();
 
-	translate( [0,0,x_bearing_x] ) {
+	translate( [0,-x_bearing_y -plate_thickness ,x_bearing_x] ) {
+
 		rotate( [0,90,0] )
 			x_bearing( leadscrew_nut = true);
 
@@ -699,7 +720,7 @@ module transfer_plate_assembled() {
 				x_bearing( leadscrew_nut = false);
 	}
 
-	translate( [z_bearing_x,-plate_thickness,0] )
+	translate( [z_bearing_x,plate_thickness + 1/2 * z_bearing_y,0] )
 		rotate([0,0,180] ) {
 
 			z_bearing( leadscrew_nut = false );
@@ -712,20 +733,21 @@ module transfer_plate_assembled() {
 
 module z_slide_assembled() {
 
+	slide_bottom();
 
-	translate( [0,-1 * inch,0] ) {
+	translate( [ 0, 0, z_slide_z - plate_thickness] )
+		slide_top();
 
-		translate( [ 0, -plate_thickness, -plate_thickness] )
-			slide_bottom();
-
-		translate( [ 0, -plate_thickness, z_slide_z - 2 * plate_thickness] )
-			slide_top();
-
+	translate( [ 0, plate_thickness, plate_thickness ] )
 		rotate( [90,0,0] ) {
 			slide_back();
 		}
 
-	}
+	translate([0,2 * z_bearing_y + 3 * plate_thickness + 2 * z_clearance,plate_thickness] )
+		rotate( [90,0,0] ) {
+			slide_back();
+		}
+
 }
 
 module bed_assembled() {
@@ -786,7 +808,7 @@ module assembled() {
 
 		translate( [
 			body_x / 2 - bed_x / 2,
-			seek_y + plate_thickness,
+			seek_y + bed_clearance + plate_thickness,
 			plate_thickness + bed_bearing_height
 		] ) {
 			bed_assembled();
@@ -803,8 +825,8 @@ module assembled() {
 			mechanical_x_axis_assembled();
 
 			translate( [
-				plate_thickness + seek_x,
-				0,
+				plate_thickness + seek_x + x_clearance,
+				plate_thickness + 1/2 * z_bearing_y + 1/2 * z_bearing_y,
 				0
 			] ) {
 
@@ -812,8 +834,8 @@ module assembled() {
 
 				translate( [
 					0,
-					-plate_thickness - 1/2 * z_bearing_y,
-					-seek_z
+					-z_slide_front_edge_to_bearing_center + plate_thickness,
+					-seek_z - plate_thickness - z_clearance
 				] ) {
 
 					mechanical_z_axis_assembled();
@@ -841,3 +863,4 @@ if (mode == "exploded")
 
 if (mode == "assembled")
 	assembled();
+
