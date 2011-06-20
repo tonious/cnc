@@ -45,6 +45,8 @@ rod_diameter = 3/8 * inch;
 leadscrew_diameter = 5/16 * inch;
 leadscrew_cutout_diameter = 1/2 * inch;
 
+tool_length = 1.5*inch;
+
 
 // Fudge factor to keep OpenSCAD's renderer happy.
 epsilon = 0.1 * mm; 
@@ -94,7 +96,7 @@ x_bearing_separation = 4 * inch;
 x_bearing_depth = 6 * inch;
 
 // Distance from the top of the base plate to the center of the x bearing.
-x_bearing_height = 7 * inch;
+x_bearing_height = bed_bearing_height + bed_bearing_y + 2 * plate_thickness + envelope_z + tool_length ;// 7 * inch;
 
 x_clearance = 1/2 * inch;
 
@@ -122,11 +124,13 @@ body_x = envelope_x + carriage_x + 2 * plate_thickness + 2 * x_clearance;
 body_y = envelope_y * 2 + 2 * plate_thickness + 2 * bed_clearance;
 body_z = 12 * inch;
 
+body_window_edge = 1.5 * inch;
+
 echo( str( "Base size: ", body_x/inch, " x ", body_y/inch ) );
 
 // How big is the cutout around the front of the machine?
 
-body_lip_height = 4 * inch;
+body_lip_height = 3.25 * inch;
 body_lip_depth = body_y - x_bearing_depth - 2 * inch;
 
 
@@ -375,11 +379,14 @@ module body_bottom() {
 
 module body_back() {
 
+/*
 	translate( [ 9 * inch,0,0] )
 		rotate( [0,90,0] )
 			projection( cut=true )
 	rotate( [0,-90,0] )
 		translate( [ -9 * inch,0,0] )
+ */
+
 	color(
 		plate_material
 	)
@@ -400,6 +407,13 @@ module body_back() {
 			] )
 				rotate( [0,180,0] )
 					pattern_bearing();
+
+			translate( [ body_window_edge, body_lip_height - plate_thickness, cutout_offset ] )
+				cube( [
+					body_x - 2 * body_window_edge,
+					x_bearing_height - body_lip_height + plate_thickness,
+					cutout_thickness
+					] );
 		}
 	}
 }
@@ -409,13 +423,20 @@ module body_front() {
 		plate_material
 	)
 	difference() {
-		cube( [body_x, body_lip_height - plate_thickness, plate_thickness] );
+		cube( [body_x, body_z - plate_thickness, plate_thickness] );
 		union() {
 			translate( [
 				body_x/2 - bed_bearing_x/2,
 				bed_bearing_height + bed_bearing_y / 2
 			] )
 				pattern_bed_bearings();
+
+			translate( [ body_window_edge, body_lip_height - plate_thickness, cutout_offset ] )
+				cube( [
+					body_x - 2 * body_window_edge,
+					body_z - body_lip_height - body_window_edge,
+					cutout_thickness
+					] );
 		}
 	}
 }
@@ -425,6 +446,7 @@ module body_either_side() {
 		plate_material
 	)
 	difference() {
+/*
 		linear_extrude(	
 			height = plate_thickness,
 			convexity = 10
@@ -441,10 +463,21 @@ module body_either_side() {
 			paths=[[0,1,2,3,4,5]],
 			convexity = 10
 		);
+ */
+		cube( [body_y - 2 * plate_thickness, body_z - plate_thickness, plate_thickness ] );
 
-		translate( [body_y - plate_thickness - x_bearing_depth, x_bearing_height, 0] )
-			rotate( [0,0,90] )
-				pattern_x_bearings();
+ 		union() {
+			translate( [body_y - plate_thickness - x_bearing_depth, x_bearing_height, 0] )
+				rotate( [0,0,90] )
+					pattern_x_bearings();
+
+			translate( [ body_window_edge, body_lip_height - plate_thickness,cutout_offset] )
+				cube( [
+					body_y - body_lip_depth - body_window_edge,
+					body_z - body_lip_height - body_window_edge,
+					cutout_thickness ] );
+
+		}
 	}
 }
 
@@ -672,7 +705,7 @@ module mechanical_y_axis_assembled() {
 		translate( [-bed_bearing_center_to_rod,0,0] )
 			bearing_y();
 
-		translate([0,body_y+8*mm - plate_thickness/2,0])
+		translate([0,body_y-1*mm - plate_thickness/2,0])
 			rotate([90,0,0])
 				bearing( model=627 );
 
